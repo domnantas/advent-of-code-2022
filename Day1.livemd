@@ -57,8 +57,8 @@ input = Kino.Input.textarea("Puzzle input")
 ```elixir
 Kino.Input.read(input)
 |> String.split("\n\n")
-|> Enum.map(fn elf ->
-  elf
+|> Enum.map(fn elf_calories ->
+  elf_calories
   |> String.split("\n", trim: true)
   |> Enum.map(&String.to_integer/1)
   |> Enum.sum()
@@ -79,13 +79,13 @@ Find the top three Elves carrying the most Calories. How many Calories are those
 ```elixir
 Kino.Input.read(input)
 |> String.split("\n\n")
-|> Enum.map(fn elf ->
-  elf
+|> Enum.map(fn elf_calories ->
+  elf_calories
   |> String.split("\n", trim: true)
   |> Enum.map(&String.to_integer/1)
   |> Enum.sum()
 end)
-|> Enum.sort()
-|> Enum.take(-3)
+|> Enum.sort(:desc)
+|> Enum.take(3)
 |> Enum.sum()
 ```

@@ -112,9 +112,7 @@ end)
   |> List.replace_at(move_from - 1, Enum.at(crates_accumulator, move_from - 1) -- crates_to_move)
   |> List.replace_at(move_to - 1, crates_to_move ++ Enum.at(crates_accumulator, move_to - 1))
 end)
-|> Enum.zip()
-|> hd
-|> Tuple.to_list()
+|> Enum.map(&List.first/1)
 |> Enum.join()
 ```
 
@@ -210,8 +208,6 @@ end)
   |> List.replace_at(move_from - 1, Enum.at(crates_accumulator, move_from - 1) -- crates_to_move)
   |> List.replace_at(move_to - 1, crates_to_move ++ Enum.at(crates_accumulator, move_to - 1))
 end)
-|> Enum.zip()
-|> hd
-|> Tuple.to_list()
+|> Enum.map(&List.first/1)
 |> Enum.join()
 ```

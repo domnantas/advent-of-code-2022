@@ -46,80 +46,136 @@ input = Kino.Input.textarea("Puzzle input")
 ```
 
 ```elixir
-tree_height_matrix =
-  Kino.Input.read(input)
-  |> String.split("\n")
-  |> Enum.map(fn line ->
-    line
-    |> String.split("", trim: true)
-    |> Enum.map(&{String.to_integer(&1), []})
-  end)
-  # Check if visible from left
-  |> Enum.map(fn line ->
-    line
+defmodule TreeHouse do
+  defp sides_visibility(tree_line) do
+    tree_line
     |> Enum.with_index()
-    |> Enum.map(fn {{height, visibility}, index} ->
-      is_visible =
-        line
-        |> Enum.take(index)
-        |> Enum.all?(fn {otherHeight, _} -> height > otherHeight end)
-
-      {height, Keyword.merge(visibility, left: is_visible)}
+    |> Enum.map(fn {height, index} ->
+      tree_line
+      |> Enum.split(index)
+      |> (fn {left, right} ->
+            left |> Enum.reverse() |> Enum.all?(&(&1 < height)) or
+              right |> tl() |> Enum.all?(&(&1 < height))
+          end).()
     end)
-  end)
-  # Check if visible from right
-  |> Enum.map(fn line ->
-    line
-    |> Enum.reverse()
-    |> Enum.with_index()
-    |> Enum.map(fn {{height, visibility}, index} ->
-      is_visible =
-        line
-        |> Enum.take(index)
-        |> Enum.all?(fn {otherHeight, _} -> height > otherHeight end)
+  end
 
-      {height, Keyword.merge(visibility, right: is_visible)}
-    end)
-    |> Enum.reverse()
-  end)
-  # Check if visible from top
-  |> Enum.zip()
-  |> Enum.map(fn line ->
-    line
-    |> Tuple.to_list()
-    |> Enum.with_index()
-    |> Enum.map(fn {{height, visibility}, index} ->
-      is_visible =
-        line
-        |> Tuple.to_list()
-        |> Enum.take(index)
-        |> Enum.all?(fn {otherHeight, _} -> height > otherHeight end)
+  def count_visible_trees(tree_grid) do
+    left_right_visibility = tree_grid |> Enum.map(&sides_visibility/1) |> List.flatten()
 
-      {height, Keyword.merge(visibility, top: is_visible)}
-    end)
-  end)
-  # Check if visible from bottom
-  |> Enum.map(fn line ->
-    line
-    |> Enum.reverse()
-    |> Enum.with_index()
-    |> Enum.map(fn {{height, visibility}, index} ->
-      is_visible =
-        line
-        |> Enum.take(index)
-        |> Enum.all?(fn {otherHeight, _} -> height > otherHeight end)
+    top_bottom_visibility =
+      tree_grid
+      |> Enum.zip_with(& &1)
+      |> Enum.map(&sides_visibility/1)
+      |> Enum.zip_with(& &1)
+      |> List.flatten()
 
-      {height, Keyword.merge(visibility, bottom: is_visible)}
-    end)
-  end)
-  |> List.flatten()
-  |> Enum.count(fn {_, visibility} -> visibility |> Keyword.values() |> Enum.any?() end)
+    Enum.zip_with(left_right_visibility, top_bottom_visibility, &or/2) |> Enum.count(& &1)
+  end
+end
+
+Kino.Input.read(input)
+|> String.split("\n")
+|> Enum.map(fn line ->
+  line
+  |> String.split("", trim: true)
+  |> Enum.map(&String.to_integer/1)
+end)
+|> TreeHouse.count_visible_trees()
 ```
 
 ## Part 2
 
+Content with the amount of tree cover available, the Elves just need to know the best spot to build their tree house: they would like to be able to see a lot of trees.
 
+To measure the viewing distance from a given tree, look up, down, left, and right from that tree; stop if you reach an edge or at the first tree that is the same height or taller than the tree under consideration. (If a tree is right on the edge, at least one of its viewing distances will be zero.)
+
+The Elves don't care about distant trees taller than those found by the rules above; the proposed tree house has large eaves to keep it dry, so they wouldn't be able to see higher than the tree house anyway.
+
+In the example above, consider the middle 5 in the second row:
+
+```
+30373
+25512
+65332
+33549
+35390
+```
+
+Looking up, its view is not blocked; it can see 1 tree (of height 3).
+Looking left, its view is blocked immediately; it can see only 1 tree (of height 5, right next to it).
+Looking right, its view is not blocked; it can see 2 trees.
+Looking down, its view is blocked eventually; it can see 2 trees (one of height 3, then the tree of height 5 that blocks its view).
+A tree's scenic score is found by multiplying together its viewing distance in each of the four directions. For this tree, this is 4 (found by multiplying 1 * 1 * 2 * 2).
+
+However, you can do even better: consider the tree of height 5 in the middle of the fourth row:
+
+```
+30373
+25512
+65332
+33549
+35390
+```
+
+Looking up, its view is blocked at 2 trees (by another tree with a height of 5).
+Looking left, its view is not blocked; it can see 2 trees.
+Looking down, its view is also not blocked; it can see 1 tree.
+Looking right, its view is blocked at 2 trees (by a massive tree of height 9).
+This tree's scenic score is 8 (2 * 2 * 1 * 2); this is the ideal spot for the tree house.
+
+Consider each tree on your map. What is the highest scenic score possible for any tree?
 
 ```elixir
+defmodule TreeHouse do
+  defp side_tree_count(tree_line, tree_height) do
+    tree_line
+    |> Enum.find_index(&(&1 >= tree_height))
+    |> case do
+      nil -> Enum.count(tree_line)
+      index -> index + 1
+    end
+  end
 
+  defp sides_tree_count(tree_line) do
+    tree_line
+    |> Enum.with_index()
+    |> Enum.map(fn {height, index} ->
+      tree_line
+      |> Enum.split(index)
+      |> (fn {left, right} ->
+            left_side_tree_count =
+              left
+              |> Enum.reverse()
+              |> side_tree_count(height)
+
+            right_side_tree_count = right |> tl |> side_tree_count(height)
+
+            left_side_tree_count * right_side_tree_count
+          end).()
+    end)
+  end
+
+  def calculate_scenic_scores(tree_grid) do
+    left_right_scenic_scores = tree_grid |> Enum.map(&sides_tree_count/1) |> List.flatten()
+
+    top_bottom_scenic_scores =
+      tree_grid
+      |> Enum.zip_with(& &1)
+      |> Enum.map(&sides_tree_count/1)
+      |> Enum.zip_with(& &1)
+      |> List.flatten()
+
+    Enum.zip_with(left_right_scenic_scores, top_bottom_scenic_scores, &*/2) |> Enum.max()
+  end
+end
+
+Kino.Input.read(input)
+|> String.split("\n")
+|> Enum.map(fn line ->
+  line
+  |> String.split("", trim: true)
+  |> Enum.map(&String.to_integer/1)
+end)
+|> TreeHouse.calculate_scenic_scores()
 ```
